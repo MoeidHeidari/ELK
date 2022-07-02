@@ -1,0 +1,13 @@
+# A role configures access permissions to clusters, indices, documents or
+# fields. Each entry can reference one or more actions groups defined in
+# sg_action_groups.yml, as well as single permissions.
+#
+# Seach Guard ships with a list of built-in roles.
+#
+# See
+#  - https://docs.search-guard.com/latest/roles-permissions
+#  - https://git.floragunn.com/search-guard/search-guard/-/blob/master/sgconfig/sg_roles.yml
+
+_sg_meta:
+  type: roles
+  config_version: 2

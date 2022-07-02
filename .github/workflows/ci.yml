@@ -1,0 +1,154 @@
+name: CI
+
+on:
+  push:
+    branches: [ searchguard ]
+  pull_request:
+    branches: [ searchguard ]
+
+jobs:
+
+  test-compose:
+    name: 'Test suite: Compose'
+    # List of supported runners:
+    # https://docs.github.com/en/free-pro-team@latest/actions/reference/specifications-for-github-hosted-runners#supported-runners-and-hardware-resources
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Prepare environment
+        run: |
+
+          # Enable support for Compose V2
+          #
+          # Instructions:
+          # https://docs.docker.com/compose/cli-command/#install-on-linux
+
+          mkdir -p ~/.docker/cli-plugins
+          curl -sL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64" -o ~/.docker/cli-plugins/docker-compose
+          chmod +x ~/.docker/cli-plugins/docker-compose
+          docker compose version
+
+          # Pre-build container images
+
+          docker compose build
+
+      - name: Initialize Search Guard
+        run: |
+
+          # Run Elasticsearch and wait for its availability
+
+          docker compose up -d elasticsearch
+          sleep 30 # polling ES would result in "Search Guard not initialized"
+
+          # Set passwords
+
+          docker compose exec -T elasticsearch bin/init_sg.sh
+
+      ##########################################################
+      #                                                        #
+      # Test core components: Elasticsearch, Logstash, Kibana. #
+      #                                                        #
+      ##########################################################
+
+      - name:  Run the stack
+        run: docker compose up -d
+
+      - name: Execute core test suite
+        run: .github/workflows/scripts/run-tests-core.sh
+
+      - name: 'debug: Display state and logs (core)'
+        # https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-syntax-for-github-actions#jobsjob_idif
+        # https://docs.github.com/en/free-pro-team@latest/actions/reference/context-and-expression-syntax-for-github-actions#job-status-check-functions
+        if: always()
+        run: |
+          docker compose ps
+          docker compose logs elasticsearch
+          docker compose logs logstash
+          docker compose logs kibana
+
+        ##############
+        #            #
+        # Tear down. #
+        #            #
+        ##############
+
+      - name: Terminate all components
+        if: always()
+        run: docker compose down -v
+
+  test-swarm:
+    name: 'Test suite: Swarm'
+    runs-on: ubuntu-latest
+
+    env:
+      MODE: swarm
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Prepare environment
+        run: |
+
+          # Enable Swarm mode
+
+          docker swarm init
+
+          # Enable support for Compose V2
+          #
+          # Instructions:
+          # https://docs.docker.com/compose/cli-command/#install-on-linux
+
+          mkdir -p ~/.docker/cli-plugins
+          curl -sL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64" -o ~/.docker/cli-plugins/docker-compose
+          chmod +x ~/.docker/cli-plugins/docker-compose
+          docker compose version
+
+          # Pre-build container images
+
+          docker compose build
+
+      - name: Initialize Search Guard
+        run: |
+
+          # Run Elasticsearch and wait for its availability
+
+          docker stack deploy -c ./docker-stack.yml elk
+          docker service scale elk_logstash=0 elk_kibana=0
+          sleep 30 # polling ES would result in "Search Guard not initialized"
+
+          # Set passwords
+
+          source .github/workflows/scripts/lib/testing.sh
+          docker exec "$(container_id elasticsearch)" bin/init_sg.sh
+
+      ##########################################################
+      #                                                        #
+      # Test core components: Elasticsearch, Logstash, Kibana. #
+      #                                                        #
+      ##########################################################
+
+      - name:  Run the stack
+        run: docker service scale elk_logstash=1 elk_kibana=1
+
+      - name: Execute core test suite
+        run: .github/workflows/scripts/run-tests-core.sh swarm
+
+      - name: 'debug: Display state and logs (core)'
+        if: always()
+        run: |
+          docker stack services elk
+          docker service logs elk_elasticsearch
+          docker service logs elk_kibana
+          docker service logs elk_logstash
+
+        ##############
+        #            #
+        # Tear down. #
+        #            #
+        ##############
+
+      - name: Terminate all components
+        if: always()
+        run: docker stack rm elk

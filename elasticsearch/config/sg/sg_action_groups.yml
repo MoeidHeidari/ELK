@@ -1,0 +1,12 @@
+# An action group is a collection of permissions that can be referred to in
+# sg_roles.yml.
+#
+# Seach Guard ships with a list of built-in action groups.
+#
+# See
+#  - https://docs.search-guard.com/latest/action-groups
+#  - https://git.floragunn.com/search-guard/search-guard/-/blob/master/sgconfig/sg_action_groups.yml
+
+_sg_meta:
+  type: actiongroups
+  config_version: 2

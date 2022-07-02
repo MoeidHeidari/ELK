@@ -1,0 +1,21 @@
+---
+## Default Kibana configuration from Kibana base image.
+## https://github.com/elastic/kibana/blob/master/src/dev/build/tasks/os_packages/docker_generator/templates/kibana_yml.template.ts
+#
+server.name: kibana
+server.host: 0.0.0.0
+elasticsearch.hosts: [ "http://elasticsearch:9200" ]
+monitoring.ui.container.elasticsearch.enabled: true
+
+## X-Pack settings
+## see https://www.elastic.co/guide/en/kibana/current/security-settings-kb.html
+#
+xpack.security.enabled: false
+
+## Search Guard
+#
+elasticsearch.username: kibanaserver
+elasticsearch.password: kibanaserver
+
+searchguard.cookie.password: 123567818187654rwrwfsfshdhdhtegdhfzftdhncn
+searchguard.accountinfo.enabled: true
